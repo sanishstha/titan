@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+node_modules/
+.next/
+.env
+data/raw/
+bench/results/*.tmp

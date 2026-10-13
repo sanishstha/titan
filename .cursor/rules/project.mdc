@@ -1,0 +1,41 @@
+---
+description: Project rules for TITAN (Autonomous Investment Research and Capital Allocation Engine)
+alwaysApply: true
+---
+
+Phase specs live in `docs/phases/phase-NN.md`. Work ONLY on the phase the user names with `START PHASE N`.
+
+## Mission
+TITAN observes public company data, detects material changes, investigates competing theses, challenges them, and (optionally, paper only) turns evidence into bounded portfolio actions. Every agent action and model decision is measurable.
+
+## Non-negotiable rules
+1. **Point-in-time correctness.** Every stored fact has `known_at` (when it became publicly available, e.g. filing acceptance time), never just `period_end`. Every query that feeds an agent takes an `as_of` timestamp and must not return anything with `known_at > as_of`. Leakage tests are mandatory.
+2. **Numbers come from code, never from the LLM.** Financial figures come from XBRL facts or deterministic calculations. The LLM chooses tools and writes prose. A report may only contain a number that traces to a stored fact or a computed metric.
+3. **Every claim is cited.** A `Claim` stores its source document, exact text span (or XBRL fact id), `known_at`, extractor version, and confidence. No uncited claim reaches a report or the UI.
+4. **Structured outputs.** All LLM outputs are validated against Pydantic schemas. Bounded retry, then log a failure. Never pass invalid output downstream silently.
+5. **One model interface.** All model calls go through `ModelClient` so backends (frontier API, self-hosted vLLM, mock) swap by config. Every call is traced: model, tokens in/out, latency, cost, cache hit.
+6. **Agents are durable.** Long-running investigations checkpoint after every step and can resume after a crash. Tool calls are idempotent or guarded by idempotency keys.
+7. **Paper trading only.** No real brokerage integration, ever. Every portfolio action needs explicit approval, passes risk constraints, and is logged with a timestamped rationale.
+8. **Not investment advice.** UI and reports carry that disclaimer. Do not claim an edge the evals do not show.
+9. **Data source hygiene.** SEC EDGAR: send a descriptive `User-Agent`, stay under SEC rate limits (use at most 5 requests/second), cache aggressively. Do not scrape paywalled or copyrighted sources (e.g. earnings call transcripts). Use filings, XBRL company facts, 8-K exhibits, FRED and licensed/free price data only.
+10. **Reproducible benchmarks.** Pin versions, fix seeds, commit configs, save results as JSON in `bench/results/`. One GPU class for all comparable runs.
+11. Type hints everywhere (backend and frontend). `ruff`, `mypy --strict`, `eslint`, `tsc` clean. No TODOs left in finished work.
+12. **No fabricated evidence.** Never invent users, quotes, feedback, sessions or outcomes in `docs/fde/` or anywhere else. Those documents are filled by the human from real sessions.
+13. Do not build features outside the current phase. Put them in `docs/backlog.md`.
+
+## Stack
+- Backend: Python 3.11+, `uv`, FastAPI, Pydantic v2, SQLAlchemy/psycopg, Postgres + pgvector (also used as the job queue via `SKIP LOCKED`), httpx, Typer, pytest, ruff, mypy
+- Frontend: Next.js (App Router) + TypeScript + Tailwind, React Flow (evidence graph), Recharts, SSE for streaming
+- Inference: vLLM (OpenAI-compatible server), later SGLang for comparison; Prometheus + Grafana
+- Infra: Docker + docker-compose; rented single GPU (RunPod, Lambda or Modal)
+
+## Gate protocol
+At `START PHASE N`:
+1. Restate the phase goal and list the files you will create or change.
+2. Implement only that phase.
+3. Run tests, lint and type checks; show the output.
+4. Run the phase's measurements and show the numbers.
+5. Write `docs/notes/phase-NN.md`: what was built, what was measured, what broke.
+6. Stop and wait for `START PHASE N+1`.
+
+If any exit criterion fails, say which and why, propose a fix, and do not move on. Phases marked OPTIONAL are skipped unless the user asks.
