@@ -19,8 +19,8 @@
 
 ## Exit criteria (all must pass)
 
-- [ ] Leakage tests pass, including restated-value cases.
-- [ ] No code outside the repository layer reads `facts` or `documents` directly (enforced by a test or lint rule).
+- [x] Leakage tests pass, including restated-value cases.
+- [x] No code outside the repository layer reads `facts` or `documents` directly (enforced by a test or lint rule).
 
 ---
 When done: write `docs/notes/phase-01.md` (built, measured, broke), then stop and wait for `START PHASE 2`.
