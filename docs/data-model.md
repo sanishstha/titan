@@ -89,7 +89,7 @@ A fact row’s value, unit, period, dimensions, document, and `known_at` are nev
 
 The as-of view keeps the row with the greatest `known_at` that is still `<= as_of` for each logical key. A query dated between the two filings returns the original. A query dated after the amendment returns the restated value.
 
-Ingest is insert-only: `INSERT … ON CONFLICT DO NOTHING` on the fact unique key. Re-running a load does not change row counts. The same document cannot overwrite its own number.
+There is no ingest writer in this phase. A second insert of the same source identity hits `uq_facts_source_identity` and raises a unique violation. Phase 2 can use `INSERT … ON CONFLICT DO NOTHING` on that key so a reload changes nothing. The same document cannot overwrite its own number.
 
 `known_at` is copied onto the fact from its document at insert and then left alone. Phase 2 should resolve acceptance time before the first insert. The repository still joins the source document and applies the same cutoff there, so a fact cannot appear while its filing is still in the future.
 
@@ -149,7 +149,11 @@ ORDER BY
   facts.id DESC;
 ```
 
-An instant fact uses `period_start IS NULL` in place of the `IS NOT DISTINCT FROM` comparison. Services and agents call this module. They do not select from `facts` or `documents`. A test scans `backend/src/titan` and fails when another module does.
+An instant fact uses `period_start IS NULL` in place of the `IS NOT DISTINCT FROM` comparison. Services and agents call this module. They do not select from `facts` or `documents`.
+
+`backend/tests/test_no_direct_financial_reads.py` parses `backend/src/titan` with the Python AST and fails when any module other than `pit/repository.py` builds a SQLAlchemy read of `Fact` or `Document`. The supported shapes are `select` (including `Table.select()`), `query`, `get`, `get_one`, `join` / `outerjoin` / `join_from`, `where` / `filter` / `having` / `order_by` / `group_by`, the usual loader options, and `text` / `execute` / `exec_driver_sql` whose SQL `FROM` or `JOIN` names `facts` or `documents`. Import aliases, `aliased()`, and names assigned from those classes count. Alembic migrations and tests are outside the walk: they create schema and seed rows, and test fixtures select from `facts` on purpose. Inserts stay legal, because ingestion writes rows outside the repository.
+
+The checker is static. A query hidden behind a parameter (`select(model)`), `getattr`, `exec`, or a non-constant SQL string is outside what it can see. The test module documents those limits and the sets to edit when a new call shape or ORM class should be watched. A new service file is scanned with no extra registration. It calls `PointInTimeRepository` instead of being added to the allowlist.
 
 ## Constraints and indexes
 

@@ -131,7 +131,7 @@ def test_fact_becomes_visible_at_exact_known_at(db_session: Session) -> None:
     visible = _latest(db_session, company.id, known_at)
     assert visible is not None
     assert visible.id == fact.id
-    assert visible.value == Decimal("100")
+    assert visible.value == Decimal(100)
 
 
 def test_restatement_switches_only_after_the_amendment(db_session: Session) -> None:
@@ -149,7 +149,7 @@ def test_restatement_switches_only_after_the_amendment(db_session: Session) -> N
     early = _latest(db_session, company.id, between)
     assert early is not None
     assert early.id == first.id
-    assert early.value == Decimal("100")
+    assert early.value == Decimal(100)
 
     repo = PointInTimeRepository(db_session)
     later = repo.visible_fact_versions(company_id=company.id, as_of=amended_at)
@@ -157,7 +157,7 @@ def test_restatement_switches_only_after_the_amendment(db_session: Session) -> N
     assert [row.id for row in later] == [first.id, second.id]
     assert latest is not None
     assert latest.id == second.id
-    assert latest.value == Decimal("90")
+    assert latest.value == Decimal(90)
 
 
 def test_fact_waits_for_its_source_document(db_session: Session) -> None:
@@ -173,7 +173,7 @@ def test_fact_waits_for_its_source_document(db_session: Session) -> None:
     visible = _latest(db_session, company.id, document_known_at)
     assert visible is not None
     assert visible.document_id == document.id
-    assert visible.value == Decimal("100")
+    assert visible.value == Decimal(100)
 
 
 def test_facts_do_not_cross_companies(db_session: Session) -> None:
@@ -191,10 +191,10 @@ def test_facts_do_not_cross_companies(db_session: Session) -> None:
     other_latest = _latest(db_session, other.id, known_at)
     assert acme_latest is not None
     assert acme_latest.id == acme_fact.id
-    assert acme_latest.value == Decimal("100")
+    assert acme_latest.value == Decimal(100)
     assert other_latest is not None
     assert other_latest.id == other_fact.id
-    assert other_latest.value == Decimal("999")
+    assert other_latest.value == Decimal(999)
 
 
 def test_usd_does_not_match_eur(db_session: Session) -> None:
@@ -210,9 +210,9 @@ def test_usd_does_not_match_eur(db_session: Session) -> None:
     eur_latest = _latest(db_session, company.id, known_at, unit="EUR")
     assert usd_latest is not None
     assert usd_latest.id == usd.id
-    assert usd_latest.value == Decimal("100")
+    assert usd_latest.value == Decimal(100)
     assert eur_latest is not None
-    assert eur_latest.value == Decimal("80")
+    assert eur_latest.value == Decimal(80)
 
 
 def test_fy2024_does_not_replace_fy2023(db_session: Session) -> None:
@@ -237,10 +237,10 @@ def test_fy2024_does_not_replace_fy2023(db_session: Session) -> None:
     current = _latest(db_session, company.id, fy2024_at, period=_FY2024)
     assert prior is not None
     assert prior.id == fy2023.id
-    assert prior.value == Decimal("40")
+    assert prior.value == Decimal(40)
     assert current is not None
     assert current.id == fy2024.id
-    assert current.value == Decimal("55")
+    assert current.value == Decimal(55)
 
 
 def test_naive_timestamp_is_rejected(db_session: Session) -> None:
@@ -254,7 +254,7 @@ def test_naive_timestamp_is_rejected(db_session: Session) -> None:
             document_id=uuid4(),
             taxonomy="us-gaap",
             concept="Revenues",
-            value=Decimal("100"),
+            value=Decimal(100),
             unit="USD",
             period_type="duration",
             period_start=date(2023, 1, 1),

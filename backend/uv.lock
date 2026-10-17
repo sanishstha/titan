@@ -1160,6 +1160,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "tenacity" },
     { name = "typer" },
+    { name = "tzdata" },
     { name = "uvicorn" },
 ]
 
@@ -1189,6 +1190,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "tenacity" },
     { name = "typer" },
+    { name = "tzdata" },
     { name = "uvicorn" },
 ]
 provides-extras = ["dev"]

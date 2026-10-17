@@ -2,7 +2,7 @@
 
 Phase 1 is the point-in-time store and the only application read path for documents and financial facts. It is the database, the Python types that match it, the migration, and `PointInTimeRepository`. It is not ingestion, and it does not call a model.
 
-Both exit criteria pass. Leakage tests, including restatements, pass. A source scan keeps selects of `facts` and `documents` inside `backend/src/titan/pit/repository.py`.
+Both exit criteria pass. Leakage tests, including restatements, pass. An AST walk keeps SQLAlchemy reads of `facts` and `documents` inside `backend/src/titan/pit/repository.py`.
 
 The design this code implements is [data-model.md](../data-model.md).
 
@@ -161,9 +161,17 @@ The `vector` extension is created in this migration and no embedding column is a
 |---|---|
 | Schema tests | Naive datetimes are rejected. Offsets are converted to UTC. Floats are rejected for money. Duration and instant period rules hold. The dimension hash is canonical and a mismatched hash is rejected. |
 | Repository leakage tests | A naive `as_of` is rejected. A row at exactly `known_at` is visible and a microsecond earlier is not. Future filings and facts stay hidden, including a fact whose own `known_at` is already in the past while its source document is not. Between an original 10-K and a 10-K/A, the latest value is the original. After the amendment, both values are still returned and the latest value is the restatement. Concept, unit, period, taxonomy, and dimension hash each select their own row. A shared `known_at` resolves by accession number. |
-| Read-path scan | Under `backend/src/titan`, `select`, `get`, `FROM`, and `JOIN` against `facts` or `documents` appear only in `pit/repository.py`. |
+| Read-path guard | An AST walk of `backend/src/titan` allows SQLAlchemy reads of `Fact`, `Document`, `facts`, and `documents` only in `pit/repository.py`. Alembic migrations and tests are outside the walk. The patterns and the static blind spots are documented in `backend/tests/test_no_direct_financial_reads.py`. |
 | Metadata tests | Six tables are registered. `value` is `Numeric(38, 10)`. `known_at` is timezone-aware and NOT NULL. The fact unique constraint asks for `NULLS NOT DISTINCT`. The as-of index is `known_at DESC`. Job indexes are partial. The ORM refuses a fact update. |
 | Database tests | Skipped if Postgres or the `facts` table is absent. Otherwise they check the live column types, insert a restatement, reject `UPDATE` from SQL and from the ORM, and reject a second insert of the same instant fact. Each test rolls back. |
+
+This review added `backend/src/titan/services/filing_reader.py` with `return select(Fact)` and ran `test_application_code_queries_facts_and_documents_only_in_the_repository`. It failed:
+
+```text
+AssertionError: assert ['services/filing_reader.py:9:11: select'] == []
+```
+
+The file and the empty `services` directory were removed. The same test is green in the suite below.
 
 ## Point-in-time repository
 
@@ -183,47 +191,101 @@ The historical query is `DISTINCT ON` the logical key, implemented with SQLAlche
 
 ## Commands and results
 
-From `backend/`, against Compose `pgvector/pgvector:pg16` on `localhost:5432`.
+Reviewed on 2026-10-14 against Compose `pgvector/pgvector:pg16` (`titan2-db-1`, Postgres 16, port 5432, database `titan`). Interpreter and tools: Python 3.15.0, ruff 0.17.0, mypy 2.4.0, pytest 9.1.1, Alembic 1.20.0, SQLAlchemy 2.1.4, Pydantic 2.14.1. The project requires Python 3.11 or newer. This machine ran 3.15.0.
+
+From the repo root:
+
+```text
+make check
+```
+
+`make check` is `ruff check .`, then `mypy src`, then `pytest -q`, each from `backend/`.
+
+The run below is after `services/filing_reader.py` was deleted.
+
+```text
+cd backend && uv run ruff check .
+All checks passed!
+cd backend && uv run mypy src
+Success: no issues found in 31 source files
+cd backend && uv run pytest -q
+54 passed in 0.54s
+```
+
+No tests were skipped. The leakage cases ran against the migrated database. A separate run of the read-path test after the probe was removed: `1 passed in 0.06s`.
+
+From `backend/`:
+
+```text
+uv run pytest -v --tb=no
+```
+
+```text
+54 passed in 0.54s
+```
+
+Leakage and restatement tests in that run, all passed:
+
+- `test_future_fact_is_invisible`
+- `test_fact_becomes_visible_at_exact_known_at`
+- `test_restatement_switches_only_after_the_amendment`
+- `test_fact_waits_for_its_source_document`
+- `test_restatement_preserves_the_original_and_as_of_selects_the_known_value`
+- `test_fact_stays_hidden_until_its_source_document_is_visible`
+- `test_future_fact_on_an_already_public_document_stays_hidden`
+- `test_future_rows_and_other_companies_stay_hidden`
+- `test_boundary_includes_the_cutoff_and_ignores_filed_at`
+- `test_restatement_keeps_both_versions`
+- `test_database_rejects_fact_updates`
+- `test_same_instant_fact_cannot_be_inserted_twice`
+
+The read-path gate is `test_application_code_queries_facts_and_documents_only_in_the_repository`. It passed after the probe file was removed.
+
+From `backend/`, the database was already at head, so upgrade applied nothing:
 
 ```text
 uv run alembic upgrade head
-```
-
-```text
-INFO  [alembic.runtime.migration] Running upgrade  -> 54459e9eabff, initial financial evidence schema
-```
-
-```text
 uv run alembic check
 uv run alembic current
+uv run alembic heads
+uv run alembic history
 ```
 
 ```text
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
 No new upgrade operations detected.
 54459e9eabff (head)
+<base> -> 54459e9eabff (head), initial financial evidence schema
 ```
 
-`alembic check` compares the live database with `Base.metadata`. "No new upgrade operations detected" means the migration and the models describe the same tables. The trigger and the `vector` extension are not in the metadata, so that check does not cover them. `psql` confirmed both: `facts_append_only` is a `BEFORE UPDATE` trigger, and the six tables plus `alembic_version` are present.
+`alembic check` compares the live database with `Base.metadata`. "No new upgrade operations detected" means the migration and the models describe the same tables. The trigger and the `vector` extension are not in the metadata, so that check does not cover them.
 
-Inspection also confirmed:
+```text
+docker compose exec -T db psql -U titan -d titan -c '\dt'
+```
 
-- `facts.value` is `numeric(38,10)` NOT NULL. `facts.known_at` and `documents.known_at` are `timestamp with time zone` NOT NULL.
+```text
+ public | alembic_version | table | titan
+ public | claims          | table | titan
+ public | companies       | table | titan
+ public | documents       | table | titan
+ public | facts           | table | titan
+ public | jobs            | table | titan
+ public | traces          | table | titan
+```
+
+`alembic_version.version_num` is `54459e9eabff`. `pg_extension` contains `vector`. `facts_append_only` is `BEFORE UPDATE ON public.facts FOR EACH ROW EXECUTE FUNCTION facts_reject_update()`.
+
+Column and constraint inspection also confirmed:
+
+- `facts.value` is `numeric(38,10)` NOT NULL. `facts.known_at` and `documents.known_at` are `timestamp with time zone` NOT NULL. `companies.cik` is `character(10)` NOT NULL.
 - `uq_facts_source_identity` is `UNIQUE NULLS NOT DISTINCT (document_id, taxonomy, concept, unit, period_start, period_end, dimensions_hash)`.
-- `ix_facts_as_of` ends in `known_at DESC`.
+- `ix_facts_as_of` is `(company_id, taxonomy, concept, unit, period_end, period_start, dimensions_hash, known_at DESC)`.
 - `ix_jobs_queued_run_after` is `WHERE (status = 'queued')`. `uq_jobs_idempotency_key` is unique `WHERE (idempotency_key IS NOT NULL)`.
 - `fk_facts_document_company` and `fk_claims_document_company` reference `documents (id, company_id)` with `ON DELETE RESTRICT`.
 
-```text
-uv run ruff check .
-uv run mypy src
-uv run pytest -q
-```
-
-```text
-All checks passed!
-Success: no issues found in 31 source files
-39 passed in 0.41s
-```
+Integer assertions in `tests/test_point_in_time.py` use `Decimal(100)` and the same form. `Decimal(100)` equals `Decimal("100")` for these integers. Ruff 0.17's `FURB157` asks for that constructor. An earlier tree kept `Decimal("100")` and `ruff check .` reported those hints. This review's `ruff check .` reports none.
 
 ## What broke, and the fix
 
@@ -235,7 +297,19 @@ Success: no issues found in 31 source files
 
 **Text order followed the database locale.** With the default collation, `shares` sorted before `USD`. The repository now sorts taxonomy, concept, unit, dimensions hash, and accession number with `COLLATE "C"`, so the order is byte order. `latest_visible_fact` uses PostgreSQL `distinct_on` rather than `Select.distinct(...)`, which SQLAlchemy 2.1 deprecates.
 
+## Gate
+
+Both Phase 1 exit criteria pass on this review.
+
+1. Leakage tests pass, including restatements. A future fact is invisible. Between the 10-K and the 10-K/A the latest value is the original. After the amendment both rows are still returned and the latest value is the restatement. A fact stays hidden until its source document is public.
+2. Application code outside `backend/src/titan/pit/repository.py` does not read `facts` or `documents`. `test_application_code_queries_facts_and_documents_only_in_the_repository` enforces that. A planted `select(Fact)` failed the test, then was removed.
+
+`make check`, Alembic, and the live table list all succeeded. Phase 1 is complete. Phase 2 has not been started.
+
 ## What this slice does not do
 
-- No EDGAR client, no filing parser, no agent, no `ModelClient`. Inserts of filings still happen in tests and, later, in ingestion. The repository only reads.
-- No evidence graph, thesis, price, portfolio, or embedding column.
+- No EDGAR client, no filing parser, no agent, no `ModelClient`. Inserts of filings still happen in tests and, later, in ingestion. The repository only reads. There is no `ON CONFLICT DO NOTHING` writer yet. A duplicate identity raises `IntegrityError`.
+- No evidence graph, thesis, price, portfolio, or embedding column. The `vector` extension is installed and unused.
+- The read-path guard is static. The blind spots are listed in `backend/tests/test_no_direct_financial_reads.py` and locked by `test_static_detection_misses_indirect_queries`.
+- `alembic check` does not see `facts_append_only` or `CREATE EXTENSION vector`. Those were checked with `psql`.
+- Database tests skip when Postgres is down or `public.facts` is missing. This run did not skip.

@@ -1,0 +1,30 @@
+Item 1. Business ..... 4
+Item 1. Business
+Item 1A. Risk Factors
+Item 7. Management's Discussion and Analysis of Financial Condition and Results of Operations
+Item 8. Financial Statements and Supplementary Data
+
+Item 1. Business
+Industrial sensors are manufactured, sold, and serviced for customers in many countries. Industrial sensors are manufactured, sold, and serviced for customers in many countries. Industrial sensors are manufactured, sold, and serviced for customers in many countries. Industrial sensors are manufactured, sold, and serviced for customers in many countries. Industrial sensors are manufactured, sold, and serviced for customers in many countries. Industrial sensors are manufactured, sold, and serviced for customers in many countries.
+See Item 1A. Risk Factors.
+Item 1A. Risk Factors are discussed above and this line is prose.
+Item 1. Business
+Continued discussion after a repeated plain heading.
+
+Item 1A. Risk Factors
+Customers are concentrated in two regions and that concentration is a material risk for the business.
+
+Item 7. Management's Discussion and Analysis of Financial Condition and Results of Operations
+Revenue increased in the data center business compared with the prior year and the year before that.
+
+Item 7A. Quantitative and Qualitative Disclosures About Market Risk
+Interest rate risk is limited.
+
+Item 8. Financial Statements and Supplementary Data
+The audit report precedes the statements.
+
+Notes to Consolidated Financial Statements
+Note 1. The company is a café.
+
+Item 9. Changes in and Disagreements with Accountants on Accounting and Financial Disclosure
+None.

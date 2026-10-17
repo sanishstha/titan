@@ -1,0 +1,51 @@
+{
+  "cik": "0001045810",
+  "name": "NVIDIA CORP",
+  "tickers": ["NVDA"],
+  "sic": "3674",
+  "filings": {
+    "recent": {
+      "accessionNumber": [
+        "0001045810-24-000029",
+        "0001045810-24-000099",
+        "0001193125-24-000111",
+        "0001045810-24-000050"
+      ],
+      "filingDate": ["2024-02-21", "2024-11-01", "2024-06-18", "2024-05-01"],
+      "reportDate": ["2024-01-28", "2024-01-28", "2024-06-15", ""],
+      "acceptanceDateTime": [
+        "2024-02-22T02:36:57.000Z",
+        "2024-11-02T01:00:00.000Z",
+        "2024-06-19T00:00:24.000Z",
+        "2024-05-02T00:00:00.000Z"
+      ],
+      "form": ["10-K", "10-K/A", "8-K", "4"],
+      "primaryDocument": [
+        "nvda-20240128.htm",
+        "nvda-20240128a.htm",
+        "d48176d8k.htm",
+        "xslF345X03/wf-form4_1.xml"
+      ],
+      "core_type": ["XBRL", "XBRL", "XBRL", "4"]
+    },
+    "files": [
+      {
+        "name": "CIK0001045810-submissions-001.json",
+        "filingCount": 4,
+        "filingFrom": "2018-02-21",
+        "filingTo": "2024-02-21"
+      },
+      {
+        "name": "CIK0001045810-submissions-002.json",
+        "filingCount": 1,
+        "filingFrom": "1998-03-06",
+        "filingTo": "2018-12-31"
+      },
+      {
+        "name": "CIK0001045810-submissions-003.json",
+        "filingCount": 1,
+        "filingFrom": "2010-01-01"
+      }
+    ]
+  }
+}

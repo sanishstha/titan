@@ -65,7 +65,7 @@ flowchart TB
   PIT --> Jobs[(jobs and traces)]
 ```
 
-Every read takes `as_of` and drops rows whose `known_at` is later than that time. A fact is included when its source document is visible at that same cutoff. Application reads of documents and facts go through `backend/src/titan/pit/repository.py`. A restated value is stored as its own row, so an earlier `as_of` still returns the value that was public then. The version list still contains the original after the amendment is public.
+Every read takes `as_of` and drops rows whose `known_at` is later than that time. A fact is included when its source document is visible at that same cutoff. Application reads of documents and facts go through `backend/src/titan/pit/repository.py`. An AST test rejects a SQLAlchemy read of those tables from any other application module. A restated value is stored as its own row, so an earlier `as_of` still returns the value that was public then. The version list still contains the original after the amendment is public.
 
 The Phase 1 tables, keys, and indexes are specified in [data-model.md](data-model.md). Sections, the evidence graph, theses, and the paper book are later phases.
 
